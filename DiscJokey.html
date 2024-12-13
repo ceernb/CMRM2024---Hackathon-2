@@ -14,7 +14,7 @@
             align-items: center;
             height: 100vh;
             justify-content: space-around;
-            background-image: url('https://www.polo-cremona.polimi.it/fileadmin/user_upload/upload/News_Homepage/IMG_4955.JPG'); /* Resmin bağlantısı */
+            background-image: url('https://www.polo-cremona.polimi.it/fileadmin/user_upload/upload/News_Homepage/IMG_4955.JPG');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
@@ -62,20 +62,20 @@
             margin: 10px;
             width: 80%;
         }
-
     </style>
 </head>
 
-
 <body>
-    <button id="startButton">Play Melody</button>
+    <button id="melodyButton">Start Melody</button>
+    <button id="chordsButton">Start Chords</button>
+    <button id="beatButton">Start Beat</button>
     <button id="resetButton">Reset</button>
     <canvas id="visualizer"></canvas>
 
     <div class="slider-container">
         <label for="volumeSlider">Volume</label>
         <input type="range" id="volumeSlider" class="slider" min="-40" max="20" step="1" value="0">
-        
+
         <label for="bpmSlider">Tempo (BPM)</label>
         <input type="range" id="bpmSlider" class="slider" min="60" max="180" step="1" value="120">
 
@@ -86,49 +86,18 @@
     <script src="https://cdn.jsdelivr.net/npm/tone@14.8.16/build/Tone.js"></script>
 
     <script>
+        // Samples:
+        const synth = new Tone.Synth().toDestination();
+        const chordSynth = new Tone.PolySynth(Tone.Synth).toDestination();
         const kick = new Tone.Player("samples/kick.wav").toDestination();
         const snare = new Tone.Player("samples/snare.wav").toDestination();
 
-        const beatPattern = [
-            { time: "0:0:0", instrument: "kick" },
-            { time: "0:1:0", instrument: "snare" },
-            { time: "0:2:0", instrument: "kick" },
-            { time: "0:3:0", instrument: "snare" },
-        ];
-
-        const beatPart = new Tone.Part((time, value) => {
-            if (value.instrument === "kick") kick.start(time);
-            if (value.instrument === "snare") snare.start(time);
-        }, beatPattern).start(0);
-
-        beatPart.loop = true;
-        beatPart.loopEnd = "1m";
-
-        // --- melodi ---
+        // Melody:
         const part1 = ["C5", "D5", "F5"];
         const part2 = ["C5", "D5", "G5"];
         const part3 = ["C5", "D5", "Bb5", "C6"];
         const part4 = ["C5", "D5", "Bb5"];
         const melody = [].concat(part1, part1, part2, part1, part1, part1, part1, part2, part1, part1, part1, part1, part1, part2, part1, part1, part2, part3, part2, part4, part1);
-
-        // --- synth ve efektler ---
-        const synth = new Tone.Synth().toDestination();
-        const reverb = new Tone.Reverb({
-            decay: 1.5,
-            preDelay: 0.01,
-            wet: 0.5,
-        }).toDestination();
-        const delay = new Tone.FeedbackDelay(0.2, 0.5).toDestination(); // Delay effect
-
-        // Connect synth to reverb and delay
-        synth.connect(reverb);
-        synth.connect(delay);
-
-        // trying to visualize frequencies
-        const analyser = new Tone.Analyser("fft", 256);
-        reverb.connect(analyser);
-
-        synth.volume.value = 0;
 
         const melodyEvents = melody.map((note, index) => ({
             time: index * Tone.Time("8n"),
@@ -142,12 +111,10 @@
         melodyPart.loop = true;
         melodyPart.loopEnd = "4m";
 
-        // === CHORDS ===
+        // Chords:
         const Gch = ["G4", "Bb4"];
         const Fch = ["F4", "A4"];
         const Dch = ["D4", "G4"];
-        
-        const chordSynth = new Tone.PolySynth(Tone.Synth).toDestination();
 
         const chordPattern = [
             { time: "0:0:0", chord: Gch },  
@@ -170,84 +137,99 @@
             if (event.chord) {
                 chordSynth.triggerAttackRelease(event.chord, "16n", time);
             }
-        }, chordPattern).start(40); 
+        }, chordPattern).start(40);
 
         chordPart.loop = true;
-        chordPart.loopEnd = "1m"; 
+        chordPart.loopEnd = "1m";
+        
+        // Beat pattern: 
+        const beatPart = new Tone.Part((time, event) => {
+            if (event.instrument === "kick") kick.start(time);
+            if (event.instrument === "snare") snare.start(time);
+        }, [
+            { time: "0:0:0", instrument: "kick" },
+            { time: "0:1:0", instrument: "snare" },
+            { time: "0:2:0", instrument: "kick" },
+            { time: "0:3:0", instrument: "snare" },
+        ]);
 
-        // === CONFIGURAZIONE TRANSPORT ===
-        Tone.Transport.bpm.value = 126;
-        Tone.Transport.loop = false;
+        beatPart.loop = true;
+        beatPart.loopEnd = "1m";
 
-        document.querySelector("#startButton").addEventListener("click", async () => {
-            console.log("Starting...");
+        // Predefined bpm
+
+        Tone.Transport.bpm.value = 120;
+
+        // Start melody button:
+        document.getElementById("melodyButton").addEventListener("click", async () => {
             await Tone.start();
-
-            synth.volume.setValueAtTime(0, 30);
-            synth.volume.linearRampToValueAtTime(0, 60); 
-
-            Tone.Transport.start(); 
-            document.querySelector("#startButton").textContent = "Pause Melody"; 
-
-            setTimeout(() => {
-                Tone.Transport.stop();
-            }, 120 * 1000);
-
-            requestAnimationFrame(draw);
+            melodyPart.start(0);
+            Tone.Transport.start();
         });
 
-        document.querySelector("#resetButton").addEventListener("click", () => {
-            // reset to default
-            document.querySelector("#volumeSlider").value = 0;
-            document.querySelector("#bpmSlider").value = 120;
-            document.querySelector("#detuneSlider").value = 0;
-
-            // Reset Tone.js parameters
-            synth.volume.value = 0;
-            Tone.Transport.bpm.value = 120;
-            delay.delayTime.setValueAtTime(0, Tone.now());
-            synth.detune.setValueAtTime(0, Tone.now());
+        // Start chords button:
+        document.getElementById("chordsButton").addEventListener("click", async () => {
+            await Tone.start();
+            chordPart.start(0);
+            Tone.Transport.start();
         });
 
-        // --- volume ---
-        document.querySelector("#volumeSlider").addEventListener("input", (event) => {
-            synth.volume.value = event.target.value;
+        // Start beat button:
+        document.getElementById("beatButton").addEventListener("click", async () => {
+            await Tone.start();
+            beatPart.start(0);
+            Tone.Transport.start();
         });
 
-        // --- bpm ---
-        document.querySelector("#bpmSlider").addEventListener("input", (event) => {
-            Tone.Transport.bpm.value = event.target.value;
+        // reset button
+        document.getElementById("resetButton").addEventListener("click", () => {
+            melodyPart.stop();
+            chordPart.stop();
+            beatPart.stop();
+            Tone.Transport.stop();
         });
 
-        // --- detune ---
-        document.querySelector("#detuneSlider").addEventListener("input", (event) => {
-            synth.detune.value = event.target.value;
+         // volume slider
+        document.getElementById("volumeSlider").addEventListener("input", (e) => {
+            Tone.Master.volume.value = e.target.value;
         });
 
-        // --- visualize ---
-        const canvas = document.querySelector("#visualizer");
+        // Bpm slider
+        document.getElementById("bpmSlider").addEventListener("input", (e) => {
+            Tone.Transport.bpm.value = e.target.value;
+        });
+
+        // Detuning slider
+        document.getElementById("detuneSlider").addEventListener("input", (e) => {
+            synth.detune.value = e.target.value;
+            chordSynth.detune.value = e.target.value;
+        });
+
+        // Frequencies
+        // Analyzer for visualizer
+        const analyser = new Tone.Analyser("fft", 256);
+        Tone.Master.connect(analyser);
+
+        const canvas = document.getElementById("visualizer");
         const ctx = canvas.getContext("2d");
 
-        // canvas size
-        canvas.width = window.innerWidth * 0.8;
-        canvas.height = 150;
+        function drawVisualizer() {
+            requestAnimationFrame(drawVisualizer);
 
-        function draw() {
             const buffer = analyser.getValue();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            const width = canvas.width / buffer.length;
-            for (let i = 0; i < buffer.length; i++) {
-                const value = buffer[i];
-                const height = (value + 100) * (canvas.height / 200);
-                ctx.fillStyle = "rgb(" + Math.floor(value * 255) + ", 0, 0)";
-                ctx.fillRect(i * width, canvas.height - height, width, height);
-            }
-            draw();
+            const barWidth = canvas.width / buffer.length;
+            buffer.forEach((value, i) => {
+                const barHeight = ((value + 140) / 140) * canvas.height;
+                const x = i * barWidth;
+
+                ctx.fillStyle = `hsl(${(i / buffer.length) * 360}, 100%, 50%)`;
+                ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+            });
         }
 
+        drawVisualizer();
     </script>
 </body>
 </html>
