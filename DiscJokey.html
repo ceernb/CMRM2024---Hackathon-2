@@ -137,7 +137,7 @@
             if (event.chord) {
                 chordSynth.triggerAttackRelease(event.chord, "16n", time);
             }
-        }, chordPattern).start(40);
+        }, chordPattern).start(0);
 
         chordPart.loop = true;
         chordPart.loopEnd = "1m";
@@ -160,6 +160,7 @@
 
         Tone.Transport.bpm.value = 120;
 
+                
         // Start melody button:
         document.getElementById("melodyButton").addEventListener("click", async () => {
             await Tone.start();
@@ -183,10 +184,22 @@
 
         // reset button
         document.getElementById("resetButton").addEventListener("click", () => {
-            melodyPart.stop();
-            chordPart.stop();
-            beatPart.stop();
+            // Stop and reset the transport
             Tone.Transport.stop();
+            Tone.Transport.position = 0;
+    
+            // Optionally, reset the volume, BPM, and detune sliders
+            document.getElementById("volumeSlider").value = 0;
+            document.getElementById("bpmSlider").value = 120;
+            document.getElementById("detuneSlider").value = 0;
+    
+            // Reset synths to default values if needed
+            synth.detune.value = 0;
+            chordSynth.detune.value = 0;
+            Tone.Master.volume.value = 0;
+
+            // Allow restarting from the beginning by re-triggering Tone.Transport
+            Tone.Transport.start();
         });
 
          // volume slider
